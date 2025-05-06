@@ -8,15 +8,21 @@
     body {
       font-family: Arial, sans-serif;
       margin: 30px;
+      max-width: 600px;
     }
     input, button {
       margin: 10px 0;
       padding: 10px;
       font-size: 16px;
+      width: 100%;
     }
     video {
-      max-width: 100%;
+      width: 100%;
       margin-top: 20px;
+    }
+    #downloadLink {
+      display: none;
+      margin-top: 10px;
     }
   </style>
 </head>
@@ -24,11 +30,12 @@
 
 <h1>Add Text Watermark to Video</h1>
 
-<input type="file" id="videoInput" accept="video/*"><br>
-<input type="text" id="watermarkText" placeholder="Enter watermark text"><br>
+<input type="file" id="videoInput" accept="video/*">
+<input type="text" id="watermarkText" placeholder="Enter watermark text">
 <button onclick="processVideo()">Add Watermark</button>
 
 <video id="outputVideo" controls style="display:none;"></video>
+<a id="downloadLink" download="watermarked_video.mp4">Download Watermarked Video</a>
 
 <script>
   const { createFFmpeg, fetchFile } = FFmpeg;
@@ -36,32 +43,50 @@
 
   async function processVideo() {
     const fileInput = document.getElementById('videoInput');
-    const text = document.getElementById('watermarkText').value;
+    const textInput = document.getElementById('watermarkText');
     const video = fileInput.files[0];
+    const text = textInput.value;
 
     if (!video || !text) {
       alert("Please select a video and enter watermark text.");
       return;
     }
 
-    if (!ffmpeg.isLoaded()) await ffmpeg.load();
+    const safeText = text.replace(/:/g, '\\:').replace(/'/g, "\\'").replace(/"/g, '\\"');
 
-    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(video));
+    try {
+      if (!ffmpeg.isLoaded()) {
+        console.log("Loading FFmpeg...");
+        await ffmpeg.load();
+        console.log("FFmpeg loaded.");
+      }
 
-    // Add watermark using FFmpeg drawtext filter
-    await ffmpeg.run(
-      '-i', 'input.mp4',
-      '-vf', `drawtext=text='${text}':fontcolor=white:fontsize=24:x=10:y=H-th-10`,
-      '-codec:a', 'copy',
-      'output.mp4'
-    );
+      ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(video));
 
-    const data = ffmpeg.FS('readFile', 'output.mp4');
-    const videoURL = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
-    
-    const outputVideo = document.getElementById('outputVideo');
-    outputVideo.src = videoURL;
-    outputVideo.style.display = 'block';
+      console.log("Running FFmpeg...");
+      await ffmpeg.run(
+        '-i', 'input.mp4',
+        '-vf', `drawtext=text='${safeText}':fontcolor=white:fontsize=24:x=10:y=H-th-10`,
+        '-codec:a', 'copy',
+        'output.mp4'
+      );
+
+      const data = ffmpeg.FS('readFile', 'output.mp4');
+      const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
+      const videoURL = URL.createObjectURL(videoBlob);
+
+      const outputVideo = document.getElementById('outputVideo');
+      const downloadLink = document.getElementById('downloadLink');
+
+      outputVideo.src = videoURL;
+      outputVideo.style.display = 'block';
+
+      downloadLink.href = videoURL;
+      downloadLink.style.display = 'block';
+    } catch (error) {
+      console.error("Error processing video:", error);
+      alert("An error occurred while adding watermark. Check console for details.");
+    }
   }
 </script>
 
