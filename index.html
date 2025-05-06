@@ -31,6 +31,7 @@
 <h1>Add Text Watermark to Video</h1>
 
 <input type="file" id="videoInput" accept="video/*">
+<input type="file" id="fontInput" accept=".ttf">
 <input type="text" id="watermarkText" placeholder="Enter watermark text">
 <button onclick="processVideo()">Add Watermark</button>
 
@@ -43,12 +44,14 @@
 
   async function processVideo() {
     const fileInput = document.getElementById('videoInput');
+    const fontInput = document.getElementById('fontInput');
     const textInput = document.getElementById('watermarkText');
     const video = fileInput.files[0];
+    const font = fontInput.files[0];
     const text = textInput.value;
 
-    if (!video || !text) {
-      alert("Please select a video and enter watermark text.");
+    if (!video || !text || !font) {
+      alert("Please select a video, font, and enter watermark text.");
       return;
     }
 
@@ -62,11 +65,11 @@
       }
 
       ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(video));
+      ffmpeg.FS('writeFile', 'OpenSans-Regular.ttf', await fetchFile(font));
 
-      console.log("Running FFmpeg...");
       await ffmpeg.run(
         '-i', 'input.mp4',
-        '-vf', `drawtext=text='${safeText}':fontcolor=white:fontsize=24:x=10:y=H-th-10`,
+        '-vf', `drawtext=fontfile=OpenSans-Regular.ttf:text='${safeText}':fontcolor=white:fontsize=24:x=10:y=H-th-10`,
         '-codec:a', 'copy',
         'output.mp4'
       );
@@ -84,7 +87,7 @@
       downloadLink.href = videoURL;
       downloadLink.style.display = 'block';
     } catch (error) {
-      console.error("Error processing video:", error);
+      console.error("FFmpeg error:", error);
       alert("An error occurred while adding watermark. Check console for details.");
     }
   }
