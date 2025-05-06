@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Video Watermark Tool</title>
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.5/dist/ffmpeg.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 30px;
+    }
+    input, button {
+      margin: 10px 0;
+      padding: 10px;
+      font-size: 16px;
+    }
+    video {
+      max-width: 100%;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Add Text Watermark to Video</h1>
+
+<input type="file" id="videoInput" accept="video/*"><br>
+<input type="text" id="watermarkText" placeholder="Enter watermark text"><br>
+<button onclick="processVideo()">Add Watermark</button>
+
+<video id="outputVideo" controls style="display:none;"></video>
+
+<script>
+  const { createFFmpeg, fetchFile } = FFmpeg;
+  const ffmpeg = createFFmpeg({ log: true });
+
+  async function processVideo() {
+    const fileInput = document.getElementById('videoInput');
+    const text = document.getElementById('watermarkText').value;
+    const video = fileInput.files[0];
+
+    if (!video || !text) {
+      alert("Please select a video and enter watermark text.");
+      return;
+    }
+
+    if (!ffmpeg.isLoaded()) await ffmpeg.load();
+
+    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(video));
+
+    // Add watermark using FFmpeg drawtext filter
+    await ffmpeg.run(
+      '-i', 'input.mp4',
+      '-vf', `drawtext=text='${text}':fontcolor=white:fontsize=24:x=10:y=H-th-10`,
+      '-codec:a', 'copy',
+      'output.mp4'
+    );
+
+    const data = ffmpeg.FS('readFile', 'output.mp4');
+    const videoURL = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+    
+    const outputVideo = document.getElementById('outputVideo');
+    outputVideo.src = videoURL;
+    outputVideo.style.display = 'block';
+  }
+</script>
+
+</body>
+</html>
